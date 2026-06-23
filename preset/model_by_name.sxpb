@@ -1,0 +1,92 @@
+()
+;; ── Canonical model definitions for sxpb-llm.
+;; Fields (all optional except fullname):
+;;   fullname          — model identifier sent to the API
+;;   token_ctx_limit   — context window size (default 128000)
+;;   token_gen_limit   — max generation tokens (default 16384)
+;;   reasoning_effort  — low / medium / high / none
+;;   timeout           — HTTP timeout in seconds (0 = wait forever)
+;;   <any other key>   — passed as extra kwargs to call_api
+
+;; ── AI Studio (Gemini / Gemma) ──────────────────────────────────────────
+(dono-gemini-lite
+  (fullname aistudio/gemini-3.1-flash-lite-preview)
+)
+(dono-gemini-flash
+  (fullname aistudio/gemini-3-flash-preview)
+)
+(dono-gemma3-12b
+  (fullname aistudio/gemma-3-12b-it)
+)
+(dono-gemma3-27b
+  (fullname aistudio/gemma-3-27b-it)
+)
+(dono-gemma4-26a4b
+  (fullname aistudio/gemma-4-26b-a4b-it)
+)
+(dono-gemma4-31b
+  (fullname aistudio/gemma-4-31b-it)
+)
+
+;; ── Mistral ─────────────────────────────────────────────────────────────
+(dono-mistral-small
+  (fullname mistral/mistral-small-latest)
+)
+(dono-mistral-medium
+  (fullname mistral/mistral-medium-latest)
+)
+(dono-mistral-large
+  (fullname mistral/mistral-large-latest)
+)
+(dono-magistral-medium
+  (fullname mistral/magistral-medium-latest)
+)
+
+;; ── OpenRouter (free tier) ──────────────────────────────────────────────
+(free-openrouter
+  (fullname openrouter/openrouter/free)
+)
+(free-qwen3.6
+  (fullname openrouter/qwen/qwen3.6-plus:free)
+)
+(free-stepfun
+  (fullname openrouter/stepfun/step-3.5-flash:free)
+)
+(dono-gpt-oss-20b
+  (fullname openrouter/openai/gpt-oss-20b:free)
+)
+(dono-gpt-oss-120b
+  (fullname openrouter/openai/gpt-oss-120b:free)
+)
+(dono-nemotron3-30a3b
+  (fullname openrouter/nvidia/nemotron-3-nano-30b-a3b:free)
+)
+(dono-nemotron3-120a12b
+  (fullname openrouter/nvidia/nemotron-3-super-120b-a12b:free)
+)
+(dono-nemotron3-550a55b
+  (fullname openrouter/nvidia/nemotron-3-ultra-550b-a55b:free)
+)
+(dono-minimax
+  (fullname openrouter/minimax/minimax-m2.5:free)
+)
+
+;; ── Local llama.cpp models ──────────────────────────────────────────────
+(local-gemma3-27b
+  (fullname llama.cpp/unsloth-gemma-3-27b-it:Q6_K)
+)
+(local-gemma4-26a4b
+  (fullname llama.cpp/unsloth-gemma-4-it-26A4B:MXFP4_MOE)
+)
+(local-nemotron3-30a3b
+  (fullname llama.cpp/noctrex-Nemotron-3-Nano-30B-A3B:MXFP4_MOE)
+  (token_gen_limit 4000)
+)
+(local-qwen3.5-9b
+  (fullname llama.cpp/unsloth-Qwen3.5-9B:Q8_0)
+  (token_gen_limit 8000)
+)
+(local-lfm2-24b
+  (fullname llama.cpp/noctrex-LFM2-24B-A2B:MXFP4_MOE)
+  (token_gen_limit 4000)
+)

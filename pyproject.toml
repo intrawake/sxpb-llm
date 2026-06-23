@@ -1,0 +1,34 @@
+[project]
+name = "sxpb-llm"
+version = "0.1.0"
+description = "Shared LLM calling, model definition parsing, and SxPB extraction utilities."
+authors = [
+    {name = "paprika-bot", email = "sockpaprika-git@intrawake.com"},
+]
+license = {text = "0BSD"}
+dependencies = [
+    "sxpb @ git+https://github.com/sxproto/sxpb-py@04fbc53342cb7c7dd75166be955253711966f5e2",
+]
+requires-python = ">=3.10"
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+    "ty",
+]
+
+[tool.pdm.scripts]
+check-format = "ruff check"
+check-type = "ty check"
+tidy = "ruff format"
+lint = {composite = ["check-format", "check-type"]}
+test = "pytest -q"
+tidytest = {composite = ["test", "tidy", "lint"]}
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.ty.environment]
+root = ["src", "test", "."]
