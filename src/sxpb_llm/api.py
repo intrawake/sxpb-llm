@@ -98,6 +98,9 @@ def call_api(
                 res_data = json.loads(response.read().decode("utf-8"))
                 choice = res_data["choices"][0]
                 content = choice["message"].get("content") or ""
+                # Some reasoning models put output in reasoning_content
+                if not content.strip():
+                    content = choice["message"].get("reasoning_content") or ""
                 content = content.strip()
 
                 if log_file:
