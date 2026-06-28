@@ -13,6 +13,7 @@ def test_imports():
     """Verify all public names are importable."""
     assert hasattr(sxpb_llm, "call_api")
     assert hasattr(sxpb_llm, "async_call_api")
+    assert hasattr(sxpb_llm, "async_call_image_api")
     assert hasattr(sxpb_llm, "ModelConfig")
     assert hasattr(sxpb_llm, "load_model_definitions")
     assert hasattr(sxpb_llm, "resolve_model")
@@ -419,3 +420,184 @@ async def test_async_call_api_reasoning_effort_none(echo_server):
         )
         assert "reasoning_effort" not in captured_payload
         assert captured_payload["chat_template_kwargs"] == {"enable_thinking": False}
+
+
+# --------------------------------------------------------------------------
+# async_call_image_api tests
+# --------------------------------------------------------------------------
+
+
+@pytest.fixture
+def image_echo_server():
+    """A transport that returns a fake /images/generations response."""
+
+    class ImageEchoTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            body = json.loads(request.read().decode())
+            prompt = body.get("prompt", "")
+            return httpx.Response(
+                200,
+                json={
+                    "data": [
+                        {"b64_json": f"base64image:{prompt}"},
+                    ]
+                },
+                request=request,
+            )
+
+    return ImageEchoTransport()
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_basic(image_echo_server):
+    """async_call_image_api returns b64_json from response."""
+    async with httpx.AsyncClient(transport=image_echo_server) as client:
+        result = await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat in a hat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+        )
+        assert result == "base64image:a cat in a hat"
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_url_fallback(image_echo_server):
+    """If b64_json is missing, the URL is fetched and base64-encoded."""
+
+    class UrlTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            if request.method == "POST":
+                return httpx.Response(
+                    200,
+                    json={"data": [{"url": "http://fake.invalid/image.png"}]},
+                    request=request,
+                )
+            # GET — URL fetch
+            return httpx.Response(
+                200,
+                content=b"\x89PNG fake image bytes",
+                request=request,
+            )
+
+    import base64
+
+    async with httpx.AsyncClient(transport=UrlTransport()) as client:
+        result = await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+        )
+        expected = base64.b64encode(b"\x89PNG fake image bytes").decode("utf-8")
+        assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_no_data():
+    """Returns None when response has no data array."""
+
+    class EmptyTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            return httpx.Response(200, json={}, request=request)
+
+    async with httpx.AsyncClient(transport=EmptyTransport()) as client:
+        result = await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+        )
+        assert result is None
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_extra_kwargs(image_echo_server):
+    """Extra kwargs are passed through to the API payload."""
+    captured_payload = {}
+
+    class SpyTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            nonlocal captured_payload
+            captured_payload = json.loads(request.read().decode())
+            return httpx.Response(
+                200,
+                json={"data": [{"b64_json": "abc"}]},
+                request=request,
+            )
+
+    async with httpx.AsyncClient(transport=SpyTransport()) as client:
+        await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+            size="1024x1024",
+        )
+        assert captured_payload["size"] == "1024x1024"
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_api_key(image_echo_server):
+    """api_key is sent as an Authorization header."""
+    captured_headers = {}
+
+    class SpyTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            nonlocal captured_headers
+            captured_headers = dict(request.headers)
+            return httpx.Response(
+                200,
+                json={"data": [{"b64_json": "abc"}]},
+                request=request,
+            )
+
+    async with httpx.AsyncClient(transport=SpyTransport()) as client:
+        await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+            api_key="sk-secret",
+        )
+        assert captured_headers.get("authorization") == "Bearer sk-secret"
+
+
+@pytest.mark.asyncio
+async def test_async_call_image_api_retries_on_429(monkeypatch):
+    """Rate-limited image requests are retried."""
+
+    async def fake_sleep(_seconds):
+        pass
+
+    import sxpb_llm.async_api
+
+    monkeypatch.setattr(sxpb_llm.async_api.asyncio, "sleep", fake_sleep)
+
+    call_count = 0
+
+    class RateLimitTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                return httpx.Response(
+                    429,
+                    json={"error": {"message": "Too many requests"}},
+                    request=request,
+                )
+            return httpx.Response(
+                200,
+                json={"data": [{"b64_json": "finally"}]},
+                request=request,
+            )
+
+    async with httpx.AsyncClient(transport=RateLimitTransport()) as client:
+        result = await sxpb_llm.async_call_image_api(
+            "test-model",
+            "a cat",
+            api_url="http://fake/v1",
+            httpx_client=client,
+        )
+        assert result == "finally"
+        assert call_count == 3
