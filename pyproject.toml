@@ -8,11 +8,12 @@ authors = [
 license = {text = "0BSD"}
 dependencies = [
     "sxpb @ git+https://github.com/sxproto/sxpb-py@04fbc53342cb7c7dd75166be955253711966f5e2",
+    "httpx2>=2.5.0",
 ]
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-async = ["httpx>=0.24"]
+async = ["httpx2>=0.24"]
 
 [tool.pdm.dev-dependencies]
 dev = [

@@ -10,7 +10,7 @@ from sxpb_llm.model import ModelConfig, load_model_definitions, resolve_model
 from sxpb_llm.sxpb_parse import get_sxpb_from_markdown, parse_sxpb_answer
 
 
-# Lazy import to avoid requiring httpx unless actually used.
+# Lazy import to avoid requiring httpx2 unless actually used.
 def __getattr__(name: str):
     if name == "async_call_api":
         from sxpb_llm.async_api import async_call_api as _fn

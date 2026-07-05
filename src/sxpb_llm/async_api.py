@@ -1,9 +1,9 @@
 """Async OpenAI-compatible API caller with exponential backoff.
 
-Mirrors ``api.py::call_api`` but uses ``httpx`` for async HTTP and
+Mirrors ``api.py::call_api`` but uses ``httpx2`` for async HTTP and
 ``await asyncio.sleep()`` for non-blocking retries.
 
-Requires ``sxpb-llm[async]`` (installs ``httpx``).
+Requires ``sxpb-llm[async]`` (installs ``httpx2``).
 """
 
 import asyncio
@@ -11,11 +11,11 @@ import base64
 import json
 import sys
 
-import httpx
+import httpx2 as httpx
 
 
 _HTTPX_IMPORT_ERROR_MSG = (
-    "httpx is required for async_call_api.  Install with: pip install sxpb-llm[async]"
+    "httpx2 is required for async_call_api.  Install with: pip install sxpb-llm[async]"
 )
 
 
