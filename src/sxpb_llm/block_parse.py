@@ -4,7 +4,7 @@ Extracts fenced code blocks (``` or ~~~) from markdown text,
 parsing language, operation arrow, and filepath from the fence info string.
 Prose between code blocks is also captured as CodeBlock instances.
 
-No SxPB parsing or content interpretation is done — that is left to callers.
+SxPB content can optionally be parsed into the returned CodeBlock objects.
 """
 
 from __future__ import annotations
@@ -12,6 +12,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
+
+import sxpb
 
 
 class CodeBlockError(str, Enum):
@@ -48,6 +51,9 @@ class CodeBlock:
             ``None`` if the block was parsed cleanly.  See :class:`CodeBlockError`.
             Callers can use this to reject blocks that don't meet their
             strictness requirements.
+        sxpb: Parsed SxPB content when ``parse_code_blocks(..., parse_sxpb=True)``
+            is used and this block is parseable as SxPB; otherwise ``None``.
+        sxpb_error: The exception raised while parsing SxPB content, or ``None``.
     """
 
     language: str
@@ -55,9 +61,16 @@ class CodeBlock:
     filepath: str | None
     content: str
     error: CodeBlockError | None = None
+    sxpb: Any = None
+    sxpb_error: Exception | None = None
 
 
-def parse_code_blocks(text: str) -> list[CodeBlock]:
+def parse_code_blocks(
+    text: str,
+    *,
+    parse_sxpb: bool = False,
+    precise: bool = False,
+) -> list[CodeBlock]:
     """Parse markdown text into a list of :class:`CodeBlock` instances.
 
     Fenced code blocks (`` ``` `` or ``~~~``) are detected and their info
@@ -70,6 +83,10 @@ def parse_code_blocks(text: str) -> list[CodeBlock]:
 
     Args:
         text: The markdown text to parse.
+        parse_sxpb: If true, parse SxPB-looking blocks and store the result on
+            ``CodeBlock.sxpb``.  Parsing is attempted for ``sxpb`` fenced blocks,
+            untagged fenced blocks, and bare ``>file`` / ``<file`` blocks.
+        precise: Passed through to :func:`sxpb.loads` when ``parse_sxpb`` is true.
 
     Returns:
         A list of ``CodeBlock`` instances in document order.
@@ -171,6 +188,8 @@ def parse_code_blocks(text: str) -> list[CodeBlock]:
         )
 
     blocks = _expand_bare_blocks(blocks)
+    if parse_sxpb:
+        _parse_sxpb_blocks(blocks, precise=precise)
     return blocks
 
 
@@ -264,3 +283,28 @@ def _expand_bare_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
             )
 
     return result
+
+
+def _parse_sxpb_blocks(blocks: list[CodeBlock], *, precise: bool) -> None:
+    """Populate ``block.sxpb`` for blocks that are intended to contain SxPB."""
+    for block in blocks:
+        if not _should_parse_as_sxpb(block):
+            continue
+
+        try:
+            block.sxpb = sxpb.loads(block.content, precise=precise)
+            block.sxpb_error = None
+        except Exception as e:
+            block.sxpb = None
+            block.sxpb_error = e
+
+
+def _should_parse_as_sxpb(block: CodeBlock) -> bool:
+    """Return whether optional SxPB parsing should be attempted for a block."""
+    if block.error is CodeBlockError.NOT_FENCED:
+        return False
+    if block.language == "sxpb":
+        return True
+    # Untagged fenced code blocks and bare operation blocks both have an empty
+    # language and no NOT_FENCED prose error.
+    return block.language == "" and block.error is None
