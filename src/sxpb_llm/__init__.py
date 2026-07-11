@@ -1,38 +1,35 @@
 """Shared LLM calling, model definition parsing, and SxPB extraction utilities.
 
-Used by sxpb-game, subllminal, and other projects needing a consistent
-OpenAI-compatible API caller with model alias resolution.
+Submodules are loaded lazily so independent facilities such as ``sxpb_llm.rag``
+do not import parser or async dependencies they do not use.
 """
 
-from sxpb_llm.api import call_api
-from sxpb_llm.block_parse import CodeBlock, CodeBlockError, parse_code_blocks
-from sxpb_llm.model import ModelConfig, load_model_definitions, resolve_model
-from sxpb_llm.sxpb_parse import get_sxpb_from_markdown, parse_sxpb_answer
+from importlib import import_module
+from typing import Any
+
+_LAZY_ATTRS = {
+    "call_api": ("sxpb_llm.api", "call_api"),
+    "async_call_api": ("sxpb_llm.async_api", "async_call_api"),
+    "async_call_image_api": ("sxpb_llm.async_api", "async_call_image_api"),
+    "CodeBlock": ("sxpb_llm.block_parse", "CodeBlock"),
+    "CodeBlockError": ("sxpb_llm.block_parse", "CodeBlockError"),
+    "parse_code_blocks": ("sxpb_llm.block_parse", "parse_code_blocks"),
+    "ModelConfig": ("sxpb_llm.model", "ModelConfig"),
+    "load_model_definitions": ("sxpb_llm.model", "load_model_definitions"),
+    "resolve_model": ("sxpb_llm.model", "resolve_model"),
+    "get_sxpb_from_markdown": ("sxpb_llm.sxpb_parse", "get_sxpb_from_markdown"),
+    "parse_sxpb_answer": ("sxpb_llm.sxpb_parse", "parse_sxpb_answer"),
+}
 
 
-# Lazy import to avoid requiring httpx2 unless actually used.
-def __getattr__(name: str):
-    if name == "async_call_api":
-        from sxpb_llm.async_api import async_call_api as _fn
-
-        return _fn
-    if name == "async_call_image_api":
-        from sxpb_llm.async_api import async_call_image_api as _fn
-
-        return _fn
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+def __getattr__(name: str) -> Any:
+    target = _LAZY_ATTRS.get(name)
+    if target is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, attribute = target
+    value = getattr(import_module(module_name), attribute)
+    globals()[name] = value
+    return value
 
 
-__all__ = [
-    "call_api",
-    "async_call_api",
-    "async_call_image_api",
-    "ModelConfig",
-    "load_model_definitions",
-    "resolve_model",
-    "get_sxpb_from_markdown",
-    "parse_sxpb_answer",
-    "CodeBlock",
-    "parse_code_blocks",
-    "CodeBlockError",
-]
+__all__ = list(_LAZY_ATTRS)

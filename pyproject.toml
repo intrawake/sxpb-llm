@@ -15,6 +15,9 @@ requires-python = ">=3.10"
 [project.optional-dependencies]
 async = ["httpx2>=0.24"]
 
+[project.scripts]
+sxpb-rag = "sxpb_llm.rag.cli:main"
+
 [tool.pdm.dev-dependencies]
 dev = [
     "pytest",
