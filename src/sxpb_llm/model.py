@@ -8,12 +8,12 @@ Format
 A ``model_by_name.sxpb`` file looks like::
 
     ()
-    (dono-gemma4-31b
-     (fullname aistudio/gemma-4-31b-it)
+    (example-chat
+     (fullname provider/example-chat)
     )
-    (local-qwen3.5-9b
-     (fullname llama.cpp/unsloth-Qwen3.5-9B:Q8_0)
-     (token_gen_limit 8000)
+    (example-reasoning
+     (fullname provider/example-reasoning)
+     (token_gen_limit 4096)
     )
 
 Every alias record is a dict with at least ``fullname``.

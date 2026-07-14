@@ -1,0 +1,13 @@
+()
+;; Small fixture for model-definition loading tests.
+(example-chat
+ (fullname provider/example-chat)
+)
+(example-reasoning
+ (fullname provider/example-reasoning)
+ (token_ctx_limit 32768)
+ (token_gen_limit 4096)
+ (reasoning_effort medium)
+ (timeout 30)
+ (temperature 0.5)
+)

@@ -4,4 +4,4 @@
 
 /dist/
 /pdm.lock
-_*/
+__pycache__/

@@ -1,6 +1,7 @@
 """Smoke tests for sxpb_llm package."""
 
 import json
+from pathlib import Path
 
 import httpx2 as httpx
 import pytest
@@ -64,6 +65,24 @@ def test_load_model_definitions_string_alias():
     """A bare string value becomes the fullname."""
     defs = load_model_definitions('() (just-a-string "my/model")')
     assert defs["just-a-string"].fullname == "my/model"
+
+
+def test_load_model_definitions_from_file():
+    """Load the small model-definition fixture from a file path."""
+    path = Path(__file__).parent / "data" / "model_by_name.sxpb"
+
+    defs = load_model_definitions(path)
+
+    assert set(defs) == {"example-chat", "example-reasoning"}
+    assert defs["example-chat"] == ModelConfig(fullname="provider/example-chat")
+    assert defs["example-reasoning"] == ModelConfig(
+        fullname="provider/example-reasoning",
+        token_ctx_limit=32768,
+        token_gen_limit=4096,
+        reasoning_effort="medium",
+        timeout=30,
+        extra={"temperature": 0.5},
+    )
 
 
 def test_resolve_model_found():
