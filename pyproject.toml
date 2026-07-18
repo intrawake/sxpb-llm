@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "0BSD"}
 dependencies = [
-    "sxpb @ git+https://github.com/sxproto/sxpb-py@aa4e1e5830483c8ba0c549f78dce38b5be9a1885",
+    "sxpb @ git+https://github.com/sxproto/sxpb-py@02bf7b5d5ab5be6e9756e6c0ec3d463fca2c62dd",
     "httpx2>=2.5.0",
 ]
 requires-python = ">=3.10"
@@ -18,7 +18,11 @@ async = ["httpx2>=0.24"]
 [project.scripts]
 sxpb-rag = "sxpb_llm.rag.cli:main"
 
-[tool.pdm.dev-dependencies]
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-asyncio",
@@ -36,10 +40,6 @@ tidy = {composite = ["tidy-python", "tidy-sxpb"]}
 lint = {composite = ["check-format", "check-type", "lint-sxpb"]}
 test = "pytest -q"
 tidytest = {composite = ["tidy", "lint", "test"]}
-
-[build-system]
-requires = ["pdm-backend"]
-build-backend = "pdm.backend"
 
 [tool.ty.environment]
 root = ["src", "test", "."]
