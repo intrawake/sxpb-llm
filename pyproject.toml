@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "0BSD"}
 dependencies = [
-    "sxpb @ git+https://github.com/sxproto/sxpb-py@02bf7b5d5ab5be6e9756e6c0ec3d463fca2c62dd",
+    "sxpb @ git+https://github.com/sxproto/sxpb-py@3a84ab22bec2d10734f7eb6dba8ffce09eb1a650",
     "httpx2>=2.5.0",
 ]
 requires-python = ">=3.10"

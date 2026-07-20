@@ -416,7 +416,7 @@ async def test_async_call_api_gives_up_after_5_retries(echo_server, monkeypatch)
 
 @pytest.mark.asyncio
 async def test_async_call_api_reasoning_effort_none(echo_server):
-    """reasoning_effort='none' adds chat_template_kwargs instead."""
+    """reasoning_effort='none' is passed through as-is."""
     captured_payload = {}
 
     class SpyTransport(httpx.AsyncBaseTransport):
@@ -437,8 +437,8 @@ async def test_async_call_api_reasoning_effort_none(echo_server):
             httpx_client=client,
             reasoning_effort="none",
         )
-        assert "reasoning_effort" not in captured_payload
-        assert captured_payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert captured_payload["reasoning_effort"] == "none"
+        assert "chat_template_kwargs" not in captured_payload
 
 
 # --------------------------------------------------------------------------

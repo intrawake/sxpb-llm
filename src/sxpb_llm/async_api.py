@@ -75,9 +75,6 @@ async def async_call_api(
 
     if reasoning_effort:
         payload["reasoning_effort"] = reasoning_effort
-        if reasoning_effort == "none":
-            payload.pop("reasoning_effort")
-            payload["chat_template_kwargs"] = {"enable_thinking": False}
 
     def _log(text: str) -> None:
         if not log_file:
