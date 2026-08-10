@@ -33,6 +33,9 @@ from typing import Any, cast
 import sxpb
 
 
+_UNSET: Any = object()
+
+
 @dataclass
 class ModelConfig:
     """Resolved model configuration."""
@@ -43,8 +46,8 @@ class ModelConfig:
     token_ctx_limit: int = 128000
     """Context window size (informational, not sent in payload)."""
 
-    token_gen_limit: int = 16384
-    """Max tokens to generate (sent as ``max_tokens``)."""
+    token_gen_limit: int | None = None
+    """Max tokens to generate (sent as ``max_tokens``; None = leave unspecified)."""
 
     reasoning_effort: str | None = None
     """Reasoning effort hint sent to the API."""
@@ -94,7 +97,9 @@ def load_model_definitions(source: str | Path) -> dict[str, ModelConfig]:
             config = ModelConfig(
                 fullname=fullname,
                 token_ctx_limit=int(entry.pop("token_ctx_limit", 128000)),
-                token_gen_limit=int(entry.pop("token_gen_limit", 16384)),
+                token_gen_limit=int(entry.pop("token_gen_limit", 0))
+                if "token_gen_limit" in entry
+                else None,
                 reasoning_effort=entry.pop("reasoning_effort", None),
                 timeout=int(entry.pop("timeout", 0)),
                 extra=entry,  # remaining keys become extra kwargs
@@ -108,7 +113,7 @@ def resolve_model(
     definitions: dict[str, ModelConfig] | None = None,
     *,
     token_ctx_limit: int | None = None,
-    token_gen_limit: int | None = None,
+    token_gen_limit: int | None = _UNSET,
     reasoning_effort: str | None = None,
     timeout: int | None = None,
     **extra,
@@ -123,7 +128,8 @@ def resolve_model(
         alias: Short name (e.g. ``"dono-gemma4-31b"``) or full model string.
         definitions: Dict from ``load_model_definitions``.
         token_ctx_limit: Override context window size.
-        token_gen_limit: Override generation token limit.
+        token_gen_limit: Override generation token limit. Pass ``None`` to clear
+                         a configured limit and leave it unspecified.
         reasoning_effort: Override reasoning effort.
         timeout: Override HTTP timeout.
         **extra: Additional overrides merged into ``ModelConfig.extra``.
@@ -139,7 +145,7 @@ def resolve_model(
     overrides: dict[str, Any] = {}
     if token_ctx_limit is not None:
         overrides["token_ctx_limit"] = token_ctx_limit
-    if token_gen_limit is not None:
+    if token_gen_limit is not _UNSET:
         overrides["token_gen_limit"] = token_gen_limit
     if reasoning_effort is not None:
         overrides["reasoning_effort"] = reasoning_effort

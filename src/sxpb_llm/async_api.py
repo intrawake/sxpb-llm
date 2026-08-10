@@ -24,7 +24,7 @@ async def async_call_api(
     prompt,
     *,
     api_url: str,
-    token_gen_limit: int = 16384,
+    token_gen_limit: int | None = None,
     token_ctx_limit: int | None = None,
     reasoning_effort: str | None = None,
     timeout: int | None = 0,
@@ -41,7 +41,8 @@ async def async_call_api(
         prompt: Either a string (wrapped as a user message) or a list of
                 message dicts.
         api_url: Base URL of the OpenAI-compatible API (required).
-        token_gen_limit: Max tokens to generate (sent as ``max_tokens``).
+        token_gen_limit: Max tokens to generate (sent as ``max_tokens``), or
+                         ``None`` to leave the provider default unspecified.
         token_ctx_limit: Context window size (unused in payload; informational
                          for callers that inspect ``return_full``).
         reasoning_effort: Optional reasoning effort hint sent to the API.
@@ -69,8 +70,9 @@ async def async_call_api(
     payload: dict = {
         "model": model,
         "messages": messages,
-        "max_tokens": token_gen_limit,
     }
+    if token_gen_limit is not None and token_gen_limit > 0:
+        payload["max_tokens"] = token_gen_limit
     payload.update(extra)
 
     if reasoning_effort:

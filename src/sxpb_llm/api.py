@@ -16,12 +16,13 @@ def call_api(
     prompt,
     *,
     api_url: str,
-    token_gen_limit: int = 16384,
+    token_gen_limit: int | None = None,
     token_ctx_limit: int | None = None,
     reasoning_effort: str | None = None,
     timeout: int | None = 0,
     log_file: str | None = None,
     return_full: bool = False,
+    api_key: str | None = None,
     **extra,
 ):
     """Call an OpenAI-compatible /chat/completions endpoint.
@@ -31,7 +32,8 @@ def call_api(
         prompt: Either a string (wrapped as a user message) or a list of
                 message dicts.
         api_url: Base URL of the OpenAI-compatible API (required).
-        token_gen_limit: Max tokens to generate (sent as ``max_tokens``).
+        token_gen_limit: Max tokens to generate (sent as ``max_tokens``), or
+                         ``None`` to leave the provider default unspecified.
         token_ctx_limit: Context window size (unused in payload; informational
                          for callers that inspect `return_full`).
         reasoning_effort: Optional reasoning effort hint sent to the API.
@@ -39,6 +41,7 @@ def call_api(
         log_file: If given, appends request/response JSON to this file.
         return_full: If True, returns ``(content, payload, response_json)``
                      instead of just the content string.
+        api_key: Optional API key sent as ``Authorization: Bearer <key>``.
         **extra: Additional key-value pairs passed through to the API payload.
 
     Returns:
@@ -56,8 +59,9 @@ def call_api(
     payload: dict = {
         "model": model,
         "messages": messages,
-        "max_tokens": token_gen_limit,
     }
+    if token_gen_limit is not None and token_gen_limit > 0:
+        payload["max_tokens"] = token_gen_limit
     payload.update(extra)
 
     if reasoning_effort:
@@ -86,7 +90,12 @@ def call_api(
         target_url += "chat/completions"
 
     req = urllib.request.Request(
-        target_url, data=data, headers={"Content-Type": "application/json"}
+        target_url,
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            **({"Authorization": f"Bearer {api_key}"} if api_key else {}),
+        },
     )
 
     for attempt in range(5):

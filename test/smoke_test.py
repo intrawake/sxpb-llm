@@ -27,7 +27,7 @@ def test_model_config_defaults():
     mc = ModelConfig(fullname="test-model")
     assert mc.fullname == "test-model"
     assert mc.token_ctx_limit == 128000
-    assert mc.token_gen_limit == 16384
+    assert mc.token_gen_limit is None  # unspecified by default
     assert mc.reasoning_effort is None
     assert mc.timeout == 0
     assert mc.extra == {}
@@ -58,7 +58,7 @@ def test_load_model_definitions_from_string():
     assert "dono-test" in defs
     mc = defs["dono-test"]
     assert mc.fullname == "aistudio/test"
-    assert mc.token_gen_limit == 16384  # default
+    assert mc.token_gen_limit is None  # unspecified by default
 
 
 def test_load_model_definitions_string_alias():
@@ -106,7 +106,14 @@ def test_resolve_model_not_found():
     """resolve_model uses alias as fullname when not in definitions."""
     mc = resolve_model("some/model", {})
     assert mc.fullname == "some/model"
-    assert mc.token_gen_limit == 16384  # default
+    assert mc.token_gen_limit is None  # unspecified by default
+
+
+def test_resolve_model_can_clear_configured_token_limit():
+    """Explicit None removes a preset generation cap."""
+    defs = {"test": ModelConfig(fullname="base/model", token_gen_limit=4096)}
+    mc = resolve_model("test", defs, token_gen_limit=None)
+    assert mc.token_gen_limit is None
 
 
 def test_sxpb_parse_answer_fenced():
@@ -160,6 +167,52 @@ def test_get_sxpb_from_markdown():
     result = get_sxpb_from_markdown(text)
     assert result is not None
     assert "candidates" in result
+
+
+# --------------------------------------------------------------------------
+# call_api tests
+# --------------------------------------------------------------------------
+
+
+def test_call_api_auth_and_optional_token_limit(monkeypatch):
+    """Sync requests authenticate and omit max_tokens unless explicitly capped."""
+    requests = []
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return json.dumps({"choices": [{"message": {"content": "ok"}}]}).encode()
+
+    def fake_urlopen(request, *, timeout):
+        requests.append((request, timeout))
+        return FakeResponse()
+
+    monkeypatch.setattr("sxpb_llm.api.urllib.request.urlopen", fake_urlopen)
+
+    content, payload, _ = sxpb_llm.call_api(
+        "test-model",
+        "Hello",
+        api_url="http://fake/v1",
+        api_key="sk-secret",
+        return_full=True,
+    )
+    assert content == "ok"
+    assert "max_tokens" not in payload
+    assert requests[-1][0].get_header("Authorization") == "Bearer sk-secret"
+
+    _, payload, _ = sxpb_llm.call_api(
+        "test-model",
+        "Hello",
+        api_url="http://fake/v1",
+        token_gen_limit=1234,
+        return_full=True,
+    )
+    assert payload["max_tokens"] == 1234
 
 
 # --------------------------------------------------------------------------
@@ -242,6 +295,7 @@ async def test_async_call_api_return_full(echo_server):
         )
         assert content == "echo:test-model:Hello"
         assert payload["model"] == "test-model"
+        assert "max_tokens" not in payload
         assert "choices" in response
 
 
@@ -255,9 +309,11 @@ async def test_async_call_api_extra_kwargs(echo_server):
             api_url="http://fake/v1",
             httpx_client=client,
             return_full=True,
+            token_gen_limit=1234,
             temperature=0.5,
             top_p=0.9,
         )
+        assert payload["max_tokens"] == 1234
         assert payload["temperature"] == 0.5
         assert payload["top_p"] == 0.9
 

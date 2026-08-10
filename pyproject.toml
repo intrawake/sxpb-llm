@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "0BSD"}
 dependencies = [
-    "sxpb @ git+https://github.com/sxproto/sxpb-py@3a84ab22bec2d10734f7eb6dba8ffce09eb1a650",
+    "sxpb @ git+https://github.com/sxproto/sxpb-py@539ea1b3fde70abe6c1c2f5188290e51a577d204",
     "httpx2>=2.5.0",
 ]
 requires-python = ">=3.10"
@@ -26,8 +26,8 @@ build-backend = "pdm.backend"
 dev = [
     "pytest",
     "pytest-asyncio",
-    "ruff",
-    "ty",
+    "ruff==0.15.22",
+    "ty==0.0.64",
 ]
 
 [tool.pdm.scripts]
