@@ -119,9 +119,6 @@ async def async_call_api(
                 res_data = await _request_once(client)
                 choice = res_data["choices"][0]
                 content = choice["message"].get("content") or ""
-                # Some reasoning models put output in reasoning_content
-                if not content.strip():
-                    content = choice["message"].get("reasoning_content") or ""
                 content = content.strip()
 
                 if log_file:

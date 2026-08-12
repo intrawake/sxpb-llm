@@ -371,7 +371,7 @@ async def test_async_call_api_api_key_header(echo_server):
 
 @pytest.mark.asyncio
 async def test_async_call_api_reasoning_content_fallback(echo_server):
-    """If content is empty, reasoning_content is used."""
+    """If content is empty, reasoning_content is NOT used as content (see api.py)."""
 
     class ReasoningTransport(httpx.AsyncBaseTransport):
         async def handle_async_request(self, request):
@@ -397,7 +397,16 @@ async def test_async_call_api_reasoning_content_fallback(echo_server):
             api_url="http://fake/v1",
             httpx_client=client,
         )
-        assert result == "think think think"
+        assert result == ""
+        # Reasoning is still available via return_full api_response
+        _, _, res = await sxpb_llm.async_call_api(
+            "test-model",
+            "Hello",
+            api_url="http://fake/v1",
+            httpx_client=client,
+            return_full=True,
+        )
+        assert res["choices"][0]["message"]["reasoning_content"] == "think think think"
 
 
 @pytest.mark.asyncio
