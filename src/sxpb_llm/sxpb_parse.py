@@ -8,11 +8,61 @@ Merges the two complementary approaches from sxpb-game and subllminal:
    lines and grows them until a valid SxPB parse is found.
 """
 
+from dataclasses import dataclass
+import re
 from typing import Any, cast
 
 import sxpb
 
 from sxpb_llm.block_parse import CodeBlockError, parse_code_blocks
+
+
+@dataclass(frozen=True)
+class SxpbFixup:
+    """One removed span; offset counts Python string characters, not bytes."""
+
+    kind: str
+    offset: int
+    removed: str
+
+
+@dataclass(frozen=True)
+class SxpbParseResult:
+    """Parsed value and mechanical fixups; callers serialize the accepted tree."""
+
+    value: Any
+    fixups: tuple[SxpbFixup, ...] = ()
+
+
+def parse_lenient_sxpb(source: str, *, precise: bool = False) -> SxpbParseResult:
+    """Parse SxPB, allowing one extra final standalone closing paren.
+
+    Try the original input first; raise its parse error if repair fails.
+    Return the parsed value and fixup records. Use ``precise=True`` when
+    reserializing to preserve collection kinds.
+    """
+    try:
+        return SxpbParseResult(sxpb.loads(source, precise=precise))
+    except sxpb.SxpbParseError as original_error:
+        trailing = re.search(r"(?m)^[ \t]*(\))[ \t]*(?:\r?\n[ \t]*)*\Z", source)
+        if trailing is None:
+            raise
+        offset = trailing.start(1)
+        prefix = source[:offset]
+        if not any(
+            line.strip() and not line.lstrip().startswith(";")
+            for line in prefix.splitlines()
+        ):
+            raise
+        candidate = prefix + source[offset + 1 :]
+        try:
+            value = sxpb.loads(candidate, precise=precise)
+        except sxpb.SxpbParseError:
+            raise original_error from None
+        return SxpbParseResult(
+            value,
+            (SxpbFixup("remove_trailing_close_paren", offset, ")"),),
+        )
 
 
 def get_sxpb_from_markdown(text: str) -> dict | None:

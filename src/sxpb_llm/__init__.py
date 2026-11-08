@@ -19,6 +19,9 @@ _LAZY_ATTRS = {
     "resolve_model": ("sxpb_llm.model", "resolve_model"),
     "get_sxpb_from_markdown": ("sxpb_llm.sxpb_parse", "get_sxpb_from_markdown"),
     "parse_sxpb_answer": ("sxpb_llm.sxpb_parse", "parse_sxpb_answer"),
+    "parse_lenient_sxpb": ("sxpb_llm.sxpb_parse", "parse_lenient_sxpb"),
+    "SxpbParseResult": ("sxpb_llm.sxpb_parse", "SxpbParseResult"),
+    "SxpbFixup": ("sxpb_llm.sxpb_parse", "SxpbFixup"),
 }
 
 
