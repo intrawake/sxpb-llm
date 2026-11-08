@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "0BSD"}
 dependencies = [
-    "sxpb @ git+https://github.com/sxproto/sxpb-py@539ea1b3fde70abe6c1c2f5188290e51a577d204",
+    "sxpb @ git+https://github.com/sxproto/sxpb-py@ee53905ac0a54dc1cafea577952ec1e7935e3d46",
     "httpx2>=2.5.0",
 ]
 requires-python = ">=3.10"
@@ -30,6 +30,15 @@ dev = [
     "ty==0.0.64",
 ]
 
+[tool.pytest.ini_options]
+addopts = [
+    "-q",
+    "--import-mode=importlib",
+]
+
+[tool.ty.environment]
+root = ["src", "test", "."]
+
 [tool.pdm.scripts]
 check-format = "ruff check"
 check-type = "ty check"
@@ -38,8 +47,5 @@ tidy-python = "ruff format"
 tidy-sxpb = "sxpb-tidy --ignore-file .gitignore"
 tidy = {composite = ["tidy-python", "tidy-sxpb"]}
 lint = {composite = ["check-format", "check-type", "lint-sxpb"]}
-test = "pytest -q"
+test = "pytest"
 tidytest = {composite = ["tidy", "lint", "test"]}
-
-[tool.ty.environment]
-root = ["src", "test", "."]
