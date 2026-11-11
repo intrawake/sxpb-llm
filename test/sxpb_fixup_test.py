@@ -126,7 +126,7 @@ def test_non_syntax_failure_not_caught_or_retried():
 def test_old_block_parser_remains_strict_and_keeps_raw_body():
     body = '(x "ok")\n)'
     block = parse_code_blocks(f"```sxpb > state\n{body}\n```", parse_sxpb=True)[0]
-    assert block.content == body and block.sxpb is None
+    assert block.content == body + "\n" and block.sxpb is None
     assert isinstance(block.sxpb_error, sxpb.SxpbParseError)
     assert parse_lenient_sxpb(block.content).value == {"x": "ok"}
 

@@ -23,15 +23,12 @@ Preamble prose.
     blocks = parse_code_blocks(text, parse_sxpb=True)
     parsed = [block for block in blocks if block.sxpb is not None]
 
-    assert [block.operation for block in parsed] == ["<", ">", ">"]
-    assert [block.filepath for block in parsed] == [
-        "/dev/stdin",
-        "/dev/stdout",
-        "artifact.sxpb",
-    ]
+    assert [block.operation for block in parsed] == ["<", ">"]
+    assert [block.filepath for block in parsed] == ["/dev/stdin", "/dev/stdout"]
     assert parsed[0].sxpb == {"question": "move?"}
     assert parsed[1].sxpb == {"answer": "b2"}
-    assert parsed[2].sxpb == {"title": "Report"}
+    assert blocks[-1].content == '\n>artifact.sxpb\n(title "Report")\n'
+    assert blocks[-1].sxpb is None
 
 
 def test_parse_code_blocks_sxpb_parsing_is_opt_in():
@@ -51,7 +48,7 @@ not sxpb at all ) )
     block = parse_code_blocks(text, parse_sxpb=True)[0]
     assert block.sxpb is None
     assert block.sxpb_error is not None
-    assert block.content == "not sxpb at all ) )"
+    assert block.content == "not sxpb at all ) )\n"
 
 
 def test_parse_code_blocks_does_not_parse_other_languages_as_sxpb():

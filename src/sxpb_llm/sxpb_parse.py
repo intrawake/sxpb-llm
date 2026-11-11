@@ -85,7 +85,7 @@ def get_sxpb_from_markdown(text: str) -> dict | None:
         if block.language == "sxpb" and isinstance(block.sxpb, dict):
             return cast(dict, block.sxpb)
 
-    # Compatibility fallback: accept untagged fenced / bare parseable blocks.
+    # Compatibility fallback: accept untagged fenced parseable blocks.
     for block in blocks:
         if block.error is not CodeBlockError.NOT_FENCED and isinstance(
             block.sxpb, dict

@@ -43,10 +43,8 @@ class CodeBlock:
             or ``None``.
         filepath: The file path if present, e.g. ``"/dev/stdout"``,
             ``"output.txt"``, or ``None``.
-        content: The raw content of the block.  For fenced code blocks this
-            is the text between the fences (trailing whitespace stripped).
-            For prose blocks this is the literal text between fences,
-            preserved exactly including leading/trailing whitespace.
+        content: Exact text between the fences, including trailing whitespace
+            and the final line ending. For prose, the exact text between blocks.
         error: An error classification if the block was malformed, or
             ``None`` if the block was parsed cleanly.  See :class:`CodeBlockError`.
             Callers can use this to reject blocks that don't meet their
@@ -54,6 +52,10 @@ class CodeBlock:
         sxpb: Parsed SxPB content when ``parse_code_blocks(..., parse_sxpb=True)``
             is used and this block is parseable as SxPB; otherwise ``None``.
         sxpb_error: The exception raised while parsing SxPB content, or ``None``.
+        opening: Exact opening fence line, including its line ending;
+            ``None`` for prose.
+        closing: Exact closing fence line, including its line ending;
+            ``None`` for prose or an unmatched opening fence.
     """
 
     language: str
@@ -63,6 +65,8 @@ class CodeBlock:
     error: CodeBlockError | None = None
     sxpb: Any = None
     sxpb_error: Exception | None = None
+    opening: str | None = None
+    closing: str | None = None
 
 
 def parse_code_blocks(
@@ -78,14 +82,17 @@ def parse_code_blocks(
     filepath.  Text that appears between fenced blocks is captured as prose
     ``CodeBlock``\\s with ``language=""``.
 
-    The content of fenced code blocks has trailing whitespace stripped.
-    Prose block content is preserved exactly as it appears in the input.
+    Content and original fence lines are preserved exactly. Only LF delimits
+    physical lines (CRLF is recognized); bare CR and Unicode separators remain
+    data. Unfenced operation-looking lines remain prose. No newline is added or
+    removed. Concatenating each block's ``(opening or '') + content +
+    (closing or '')`` reconstructs the input.
 
     Args:
         text: The markdown text to parse.
         parse_sxpb: If true, parse SxPB-looking blocks and store the result on
-            ``CodeBlock.sxpb``.  Parsing is attempted for ``sxpb`` fenced blocks,
-            untagged fenced blocks, and bare ``>file`` / ``<file`` blocks.
+            ``CodeBlock.sxpb``. Parsing is attempted for ``sxpb`` and untagged
+            fenced blocks.
         precise: Passed through to :func:`sxpb.loads` when ``parse_sxpb`` is true.
 
     Returns:
@@ -95,7 +102,17 @@ def parse_code_blocks(
         return []
 
     blocks: list[CodeBlock] = []
-    lines = text.splitlines(keepends=True)
+    # Unlike splitlines(), bare CR and Unicode separators remain data.
+    parts = text.split("\n")
+    lines = [part + "\n" for part in parts[:-1]]
+    if parts[-1]:
+        lines.append(parts[-1])
+
+    def match_line(line: str) -> str:
+        if line.endswith("\n"):
+            return line[:-2] if line.endswith("\r\n") else line[:-1]
+        return line
+
     i = 0
     prose_start = 0
 
@@ -103,7 +120,7 @@ def parse_code_blocks(
     _fence_re = re.compile(r"^[ \t]*(```+|~~~+)[ \t]*(\S*)[ \t]*(.*?)[ \t]*$")
 
     while i < len(lines):
-        m = _fence_re.match(lines[i])
+        m = _fence_re.match(match_line(lines[i]))
         if not m:
             i += 1
             continue
@@ -121,6 +138,7 @@ def parse_code_blocks(
                 )
             )
 
+        opening = lines[i]
         fence_str = m.group(1)  # e.g. "```" or "~~~~"
         fence_char = fence_str[0]  # '`' or '~'
         fence_len = len(fence_str)
@@ -149,27 +167,31 @@ def parse_code_blocks(
         )
 
         while i < len(lines):
-            if close_pattern.match(lines[i]):
+            if close_pattern.match(match_line(lines[i])):
                 break
             i += 1
 
         if i < len(lines):
             # closing fence found
             content = "".join(lines[content_start:i])
+            closing = lines[i]
             i += 1  # skip closing fence line
             error = None
         else:
             # no closing fence — take rest as content (lenient)
             content = "".join(lines[content_start:])
             error = CodeBlockError.UNMATCHED_FENCE
+            closing = None
 
         blocks.append(
             CodeBlock(
                 language=language,
                 operation=operation,
                 filepath=filepath,
-                content=content.rstrip(),
+                content=content,
                 error=error,
+                opening=opening,
+                closing=closing,
             )
         )
         prose_start = i
@@ -187,102 +209,9 @@ def parse_code_blocks(
             )
         )
 
-    blocks = _expand_bare_blocks(blocks)
     if parse_sxpb:
         _parse_sxpb_blocks(blocks, precise=precise)
     return blocks
-
-
-_BARE_OP_RE = re.compile(
-    r"(?:^|\n)[ \t]*([<>])\s*(\S+)[ \t]*\n",
-    re.MULTILINE,
-)
-_BLANK_LINE_RE = re.compile(r"\n\n")
-
-
-def _expand_bare_blocks(blocks: list[CodeBlock]) -> list[CodeBlock]:
-    """Split NOT_FENCED prose blocks at bare ``>filepath`` boundaries.
-
-    Within prose, a line like ``>filename.sxpb`` (or ``<filename.sxpb``)
-    on its own is treated as a bare operation block.  The content following
-    it (until the next bare operation or the end of the prose) becomes the
-    block's content.
-    """
-    result: list[CodeBlock] = []
-
-    for block in blocks:
-        if block.error is not CodeBlockError.NOT_FENCED:
-            result.append(block)
-            continue
-
-        prose = block.content
-        last_end = 0
-        for m in _BARE_OP_RE.finditer(prose):
-            # Flush prose before this match.  The match includes a leading
-            # newline (or start-of-string anchor), so we extend the prefix
-            # to keep that newline in the prose.
-            prefix_end = m.start()
-            if prefix_end > 0:
-                prefix_end += 1  # preserve the leading \n consumed by the match
-            prefix = prose[last_end:prefix_end]
-            # A single "\n" between consecutive bare blocks is
-            # structural, not meaningful prose.
-            if prefix and prefix != "\n":
-                result.append(
-                    CodeBlock(
-                        language="",
-                        operation=None,
-                        filepath=None,
-                        content=prefix,
-                        error=CodeBlockError.NOT_FENCED,
-                    )
-                )
-
-            operation = m.group(1)
-            filepath = m.group(2)
-            content_start = m.end()
-
-            # Find where this bare block ends: at the next bare op line,
-            # a blank line, or the end of the prose.  The blank-line
-            # search starts one character before content_start because
-            # the op line's trailing ``\n`` and a following ``\n`` form
-            # the ``\n\n`` pair that straddles the boundary.
-            next_match = _BARE_OP_RE.search(prose, content_start)
-            blank_match = _BLANK_LINE_RE.search(prose, max(0, content_start - 1))
-            candidates = []
-            if next_match:
-                candidates.append(next_match.start())
-            if blank_match and blank_match.start() + 1 >= content_start:
-                candidates.append(blank_match.start() + 1)  # after the first \n
-            content_end = min(candidates) if candidates else len(prose)
-
-            content = prose[content_start:content_end].rstrip()
-
-            result.append(
-                CodeBlock(
-                    language="",
-                    operation=operation,
-                    filepath=filepath,
-                    content=content,
-                    error=None,
-                )
-            )
-            last_end = content_end
-
-        # Flush any remaining prose (skip lone "\n" separators).
-        suffix = prose[last_end:]
-        if suffix and suffix != "\n":
-            result.append(
-                CodeBlock(
-                    language="",
-                    operation=None,
-                    filepath=None,
-                    content=suffix,
-                    error=CodeBlockError.NOT_FENCED,
-                )
-            )
-
-    return result
 
 
 def _parse_sxpb_blocks(blocks: list[CodeBlock], *, precise: bool) -> None:
@@ -305,6 +234,5 @@ def _should_parse_as_sxpb(block: CodeBlock) -> bool:
         return False
     if block.language == "sxpb":
         return True
-    # Untagged fenced code blocks and bare operation blocks both have an empty
-    # language and no NOT_FENCED prose error.
+    # Untagged fenced code blocks have an empty language and no prose error.
     return block.language == "" and block.error is None

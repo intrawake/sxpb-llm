@@ -14,6 +14,7 @@ _LAZY_ATTRS = {
     "CodeBlock": ("sxpb_llm.block_parse", "CodeBlock"),
     "CodeBlockError": ("sxpb_llm.block_parse", "CodeBlockError"),
     "parse_code_blocks": ("sxpb_llm.block_parse", "parse_code_blocks"),
+    "format_code_block": ("sxpb_llm.block_format", "format_code_block"),
     "ModelConfig": ("sxpb_llm.model", "ModelConfig"),
     "load_model_definitions": ("sxpb_llm.model", "load_model_definitions"),
     "resolve_model": ("sxpb_llm.model", "resolve_model"),
